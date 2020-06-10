@@ -3,14 +3,6 @@ begin
 
 builtins: diffie-hellman
 
-/*
- * 1. Alice and Bob agree on a finite cyclic group G of order n and a generating element g in G. (This is usually done long before the rest of the protocol; g is assumed to be known by all attackers.) The group G is written multiplicatively.
- * 2. Alice picks a random natural number a, where 1 < a < n, and sends g^a to Bob.
- * 3. Bob picks a random natural number b, which is also 1 < b < n, and sends g^b to Alice.
- * 4. Alice computes (g^b)^a.
- * 5. Bob computes (g^a)^b.
- */
-
 rule Gen_secret:
     [ Fr(~n) ]
   --[ Secret(~n) ]->

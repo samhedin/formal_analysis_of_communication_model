@@ -1,10 +1,7 @@
 theory registration_and_authentication_in_the_basic_mode
 begin
 
-// The user enters his/her email in the client device. The request is sent to the home server.
-// The home server sends an email with a verification link to the user (https link). The link contains a
-// verification code that is valid for 10 minutes. If the email does not exist, the home server stores it as unverified
-// if it is not verified within 10 min, it is removed
+// The home server emails the user a verification link.
 rule fresh_verification_code:
      [Fr(~link)]
      -->
@@ -20,15 +17,13 @@ rule write_email:
      --[CompromiseEmail()]->
      [VerificationEmail($email, link)]
 
-// The client clicks on the link (a GET request).
+// The client clicks on the link in the email.
 rule click_on_link:
      [VerificationEmail($email, link)]
      -->
      [ClickOnLink(link)]
 
-// The server verifies the verification secret and returns either fail, or if successful, a tuple (u, k^session_u)
-// where u is the user identifier and ksession u
-// is the new session key that can be used in further requests. If it was a new user, the server marks the email as verified. The user is now authenticated and registered (if it was not already registered).
+// The server verifies the secret and returns fail, or if successful, a tuple (userid, sessionkey)
 rule verify_user:
      [ClickOnLink(link), ServerSentEmail($email, link), Fr(~sessionKey), !User(userid, $email)]
      --[SessionKey(userid, ~sessionKey), NewUser('f')]->
