@@ -1,2 +1,2 @@
 # formal_security_analysis_of_authentication_in_an_asynchronous_communication_model
-Tamarin-Prover code for thesis Formal security analysis of authentication in an asynchronous communication model
+Tamarin-Prover code for the thesis Formal security analysis of authentication in an asynchronous communication model
