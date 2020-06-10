@@ -1,0 +1,85 @@
+theory owner_and_access
+begin
+
+builtins: signing
+
+rule generate_key:
+     [Fr(~sk)]
+     --[PrivateKey($U, ~sk)]->
+     [!UserKey($U, ~sk)]
+
+// "Local owner" refers to the object owner from the local user's perspective.
+// L stands for local and P for previous.
+
+// When creating an object the owner event is self-signed
+rule create_object:
+     [!UserKey($L, ~lk)]
+     --[CreateObject($O, $L), LocalOwner($O, $L, $L)]->
+     [Out(sign(<$L, $L, $O>, ~lk)), LocalOwner($O, $L, $L)]
+
+// When receiving an owner event, the signature is verified
+rule receive_owner:
+     [!UserKey($PP, ~ppk), !UserKey($P, ~pk), In(signature), LocalOwner($O, $L, $PP)]
+     --[IfTrue(verify(signature, <$PP, $P, $O>, pk(~ppk))), LocalOwner($O, $L, $P)]->
+     [LocalOwner($O, $L, $P)]
+
+// Only the current owner can change ownership
+rule change_owner:
+     [!UserKey($L, ~lk), LocalOwner($O, $L, $L)]
+     --[ChangeOwner($O, $L, $N), LocalOwner($O, $L, $N)]->
+     [LocalOwner($O, $L, $N), Out(sign(<$L, $N, $O>, ~lk))]
+
+rule send_access_event:
+     [LocalAccess($Object, $LocalUser, $LocalUser, $label, level), !UserKey($LocalUser, ~privkey), Fr(~key), Fr(~authtag), Fr(~counter)]
+     -->
+     [Out(sign(<$label, $LocalUser, $ObjectUser, 'admin', ~key, ~authtag, ~counter>, ~privkey)), Out(<'admin', ~key, ~authtag>), Out(~counter)]
+
+rule owner_to_access:
+     [LocalOwner($Object, $LocalUser, $Owner)]
+     -->
+     [LocalAccess($Object, $LocalUser, $Owner, 'all', 'owner'), LocalOwner($Object, $LocalUser, $Owner)]
+
+//objectuser is a user whose access rights will be modified
+//subjectuser is the user performing the changes
+rule receive_access_event:
+     [In(signature), In(<accesslevel, key, authtag>), In(counter), !UserKey($subjectuser, ~privkey), LocalAccess($object, $LocalUser, $subjectuser, $label, level)]
+     --[IfTrue(verify(signature, <$label, $subjectuser, $objectuser, accesslevel, key, authtag, counter>, pk(~privkey))),
+        Receive()]->
+     [LocalAccess($LocalUser, $objectuser, $object, $label, accesslevel), LocalAccess($object, $LocalUser, $subjectuser, $label, level)]
+
+lemma can_receive:
+      exists-trace
+        "Ex #i.
+            Receive() @i"
+
+restriction create_once:
+    "All o l #i #j. CreateObject(o, l) @i & CreateObject(o, l) @j ==> #i = #j"
+
+restriction change_to_new_owner:
+    "All o p n #i. ChangeOwner(o, p, n) @i ==> not(p = n)"
+
+restriction truth:
+     "All x #i. IfTrue(x) @i ==> x = true"
+
+restriction single_key:
+     "All u k1 k2 #i #j. PrivateKey(u, k1) @i & PrivateKey(u, k2) @j ==> #i = #j"
+
+lemma sanity_can_receive_owner:
+    exists-trace
+    "Ex o l p #i. LocalOwner(o, l, p) @i & not(l = p)"
+
+lemma private_key_secret:
+    "All u k #i. PrivateKey(u, k) @i ==> not(Ex #j. K(k) @j)"
+
+// This shows that if a device thinks this owner of an object is ou, then ou
+// has previously become the owner of the object through creating the object
+// or a change of ownership.
+// Problem: It does not prove injective agreement. In fact, I don't think the
+// protocol provides it. The signature only proves that ou was _at some point_
+// the owner of the object, and is vulnerable to a replay attack.
+lemma local_owner_is_authentic:
+    "All obj lu ou #i. LocalOwner(obj, lu, ou) @i
+    ==> (Ex pu #j. ChangeOwner(obj, pu, ou) @j & not(#i < #j))
+      | (Ex #j. CreateObject(obj, ou) @j & not(#i < #j))"
+
+end

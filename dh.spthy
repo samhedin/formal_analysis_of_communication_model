@@ -1,0 +1,50 @@
+theory dh
+begin
+
+builtins: diffie-hellman
+
+/*
+ * 1. Alice and Bob agree on a finite cyclic group G of order n and a generating element g in G. (This is usually done long before the rest of the protocol; g is assumed to be known by all attackers.) The group G is written multiplicatively.
+ * 2. Alice picks a random natural number a, where 1 < a < n, and sends g^a to Bob.
+ * 3. Bob picks a random natural number b, which is also 1 < b < n, and sends g^b to Alice.
+ * 4. Alice computes (g^b)^a.
+ * 5. Bob computes (g^a)^b.
+ */
+
+rule Gen_secret:
+    [ Fr(~n) ]
+  --[ Secret(~n) ]->
+    [ Nonce(~n) ]
+
+rule First1:
+    [ Nonce(~n), Fr(~tid) ]
+  -->
+    [ Out('g'^~n), First_waiting(~tid, ~n) ]
+
+rule Second:
+    [ Nonce(~m), In(fp) ]
+  --[ SharedKey(fp^~m), Role('s') ]->
+    [ Out('g'^~m) ]
+
+rule First2:
+    [ First_waiting(~tid, ~n), In(sp) ]
+  --[ SharedKey(sp^~n), Role('f') ]->
+    []
+
+lemma nonce_secret:
+    "All n #i.
+      Secret(n) @ #i ==>
+      not(Ex #j. K(n) @ #j)"
+
+lemma key_secret:
+    "All k #i #j.
+      SharedKey(k)@i & Role('f')@i & SharedKey(k)@j & Role('s')@j ==>
+      not(Ex #r. K(k) @ #r)"
+
+lemma can_end_up_with_same_key:
+    exists-trace
+    "Ex k #i #j.
+      Role('s') @i & SharedKey(k) @i &
+      Role('f') @j & SharedKey(k) @j"
+
+end
