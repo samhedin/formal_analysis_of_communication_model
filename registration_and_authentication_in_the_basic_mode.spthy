@@ -9,29 +9,29 @@ rule fresh_verification_code:
 
 rule read_email:
      [VerificationEmail($email, ~link)]
-     --[CompromiseEmail()]->
+     --[CompromiseEmail($email), Read(~link)]->
      [Out(~link), VerificationEmail($email, ~link)]
 
 rule write_email:
      [In(link)]
-     --[CompromiseEmail()]->
+     --[CompromiseEmail($email), Write(link)]->
      [VerificationEmail($email, link)]
 
 // The client clicks on the link in the email.
 rule click_on_link:
      [VerificationEmail($email, link)]
      -->
-     [ClickOnLink(link)]
+     [Out(link)]
 
 // The server verifies the secret and returns fail, or if successful, a tuple (userid, sessionkey)
 rule verify_user:
-     [ClickOnLink(link), ServerSentEmail($email, link), Fr(~sessionKey), !User(userid, $email)]
-     --[SessionKey(userid, ~sessionKey), NewUser('f')]->
+     [In(link), ServerSentEmail($email, link), Fr(~sessionKey), !User(userid, $email)]
+     --[SessionKey(userid, ~sessionKey, $email), NewUser('f')]->
      [Session(userid, ~sessionKey)]
 
 rule create_user:
-     [ClickOnLink(link), ServerSentEmail($email, link), Fr(~sessionKey), Fr(~userid)]
-     --[SessionKey(~userid, ~sessionKey), NewUser('t')]->
+     [In(link), ServerSentEmail($email, link), Fr(~sessionKey), Fr(~userid)]
+     --[SessionKey(~userid, ~sessionKey, $email), NewUser('t')]->
      [Session(~userid, ~sessionKey), !User(~userid, $email)]
 
 rule reveal_user_email:
@@ -42,29 +42,34 @@ rule reveal_user_email:
 //Lemma: User is registered or authenticated after process
 lemma new_user_can_start_session:
       exists-trace
-        "Ex user key #i.
-            SessionKey(user, key) @i & NewUser('t') @i"
+        "Ex user key email #i.
+            SessionKey(user, key, email) @i & NewUser('t') @i"
 
 lemma existing_user_can_start_session:
       exists-trace
-        "Ex user key #i.
-            SessionKey(user, key) @i & NewUser('f') @i"
+        "Ex user key email #i.
+            SessionKey(user, key, email) @i & NewUser('f') @i"
 
 lemma existing_user_has_been_created:
-      "All user key1 #i.
-      SessionKey(user, key1) @i & NewUser('f') @i ==>
+      "All user key1 email #i.
+      SessionKey(user, key1, email) @i & NewUser('f') @i ==>
             Ex key2 #j.
-               SessionKey(user, key2) @j & NewUser('t') @j
+               SessionKey(user, key2, email) @j & NewUser('t') @j
                & j < i"
 
 //If the adversary can not read the user's email, it can not obtain their sessionkey
 lemma can_not_compromise_session_key:
-      "All user key1 #i.
-           SessionKey(user, key1) @i
-           & not(Ex #r. CompromiseEmail() @r)
+      "All user key1 email #i.
+           SessionKey(user, key1, email) @i
+           & not(Ex #r. CompromiseEmail(email) @r & r < i)
            ==>
            not (Ex #j.
            K(key1) @j)"
 
+restriction read_once:
+      "All link #i #j. Read(link) @i & Read(link) @j ==> #i = #j"
+
+restriction write_once:
+      "All link #i #j. Write(link) @i & Write(link) @j ==> #i = #j"
 
 end
