@@ -1,4 +1,4 @@
-This repository contains achelor degree project
+This repository contains the bachelor degree project
 _Formal security analysis of authentication in an asynchronous communication
 model_.
 
