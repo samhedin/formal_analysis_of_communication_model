@@ -1,4 +1,4 @@
-This repository contains the Tamarin Prover code for the bachelor degree project
+This repository contains achelor degree project
 _Formal security analysis of authentication in an asynchronous communication
 model_.
 
